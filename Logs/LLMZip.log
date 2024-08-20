@@ -1,27 +1,3 @@
-2024-08-19 15:41:43,461 - INFO - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
-2024-08-19 15:41:59,409 - INFO - Initialized LLMZip with model: llama_3 and compression method: Ranks
-2024-08-19 15:41:59,410 - INFO - Starting zipping process for file: Data/small_txt.txt
-2024-08-19 15:41:59,410 - INFO - Tokenizing text for language: small_txt using model: llama_3
-2024-08-19 15:41:59,410 - INFO - Creating new tokens and saving to file: Output_Files/Tokenssmall_txtTextllama_3.txt
-2024-08-19 15:41:59,492 - INFO - Tokenization complete. Number of tokens: 47418, Characters per token: 4.17
-2024-08-19 15:41:59,492 - INFO - Padding tokens...
-2024-08-19 15:41:59,492 - INFO - Padding amount: 198
-2024-08-19 15:41:59,492 - INFO - Padding complete. Total tokens after padding: torch.Size([93, 512])
-2024-08-19 15:41:59,493 - INFO - Calculating ranks and probabilities...
-2024-08-19 15:41:59,493 - INFO - Processing batch 1 of 2
-2024-08-19 15:43:31,322 - INFO - Processing token 301 of 512 in batch 1
-2024-08-19 15:45:17,674 - INFO - Processing token 101 of 512 in batch 2
-2024-08-19 15:47:12,777 - INFO - Ranks and probabilities calculation complete. Total ranks: 47616, Total probabilities: 47616
-2024-08-19 15:47:12,778 - INFO - Calculating entropy and redundancy...
-2024-08-19 15:47:12,827 - INFO - Entropy: 0.8473216455388604, Redundancy: 0.7919891381503971
-2024-08-19 15:47:12,937 - INFO - Compression complete! Saved file as Output_Files/compressed_small_txt.txt.gpz
-2024-08-19 15:47:12,937 - INFO - Overflow map saved to Output_Files/overflow_map.json
-2024-08-19 15:47:12,938 - INFO - Zipping process for Data/small_txt.txt completed successfully.
-2024-08-19 15:47:12,938 - INFO - Compression completed in 313.53 seconds
-2024-08-19 15:47:12,940 - INFO - Padding amount: 198
-2024-08-19 15:47:12,941 - INFO - Getting Tokens...
-2024-08-19 15:47:12,941 - INFO - Processing batch 1 of 2
-2024-08-19 15:48:45,423 - INFO - Processing token 301 of 511 in batch 1
-2024-08-19 15:50:32,068 - INFO - Processing token 101 of 511 in batch 2
-2024-08-19 15:52:26,954 - INFO - Decompression Complete! Saved as Output_Files/decompressed_small_txt.txt
-2024-08-19 15:52:26,955 - ERROR - The two text files are not the same! There was an error in the process!
+2024-08-20 19:09:53,895 - INFO - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+2024-08-20 19:10:00,136 - INFO - Initialized LLMZip with model: llama_3.1 and compression method: AC
+2024-08-20 19:10:00,136 - INFO - Starting zipping process for file: Data/small_txt.txt

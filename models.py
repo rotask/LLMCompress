@@ -15,7 +15,7 @@ def get_model_and_tokenizer(model_name):
         model = MixtralForCausalLM.from_pretrained(
             "mistralai/Mixtral-8x7B-v0.1", 
             quantization_config=bnb_config, 
-            load_in_4bit=True, 
+            # load_in_4bit=True, 
             attn_implementation="flash_attention_2", 
             device_map="auto"
         )

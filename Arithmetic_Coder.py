@@ -7,10 +7,11 @@ import numpy as np
 from tqdm import tqdm
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import logging
+from config import Config
 
 
 def save_to_csv(model, language, total_chars, token_length, char_token_ratio, entropy, compression_ratio, redundancy):
-        csv_path = f'{model}_data_AC.csv'
+        csv_path = os.path.join(Config.RESULTS_DIR,f'{model}_data_AC.csv')
         file_exists = os.path.isfile(csv_path)
         with open(csv_path, mode='a', newline='') as file:
             writer = csv.writer(file)
@@ -68,7 +69,7 @@ def AC_compress_file(model, model_name, tokenizer, in_filename, out_filename, ma
     
        
     compressed = encoder.get_compressed()
-    print(compressed)
+    # print(compressed)
 
     if sys.byteorder != "little":
         compressed.byteswap(inplace=True)
@@ -81,6 +82,10 @@ def AC_compress_file(model, model_name, tokenizer, in_filename, out_filename, ma
     save_to_csv(model_name, language,num_characters,num_tokens,ratio,entropy,compression_ratio, redundacy)
     
     logging.info(f'Compressed data written to "{out_filename}".')
+
+
+
+
 
 def AC_decompress_file(model, tokenizer, in_filename, out_filename, num_tokens):
     compressed = np.fromfile(in_filename, dtype=np.uint32)

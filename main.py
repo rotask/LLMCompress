@@ -5,7 +5,6 @@ import logging
 import time
 import traceback
 import os
-from Arithmetic_Coder import AC_compress_file, AC_decompress_file
 
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:64'
 
@@ -13,17 +12,17 @@ def main():
     setup_logging()
     Config.ensure_directories()
     
-# Mixtral
+# Mixtral - out of memory for 1 L4
 # gpt2 - works with Ranks
-# Yi
-# Nemo - Mistral-Nemo-Base-2407 does not work with Ranks - decompressed file is different
+# Yi - out of memory for 1 L4
+# Nemo - Mistral-Nemo-Base-2407  - works with Ranks
 # llama_2 - out of memory for 1 L4
-# llama_3 - decompressed file is different
-# llama_3.1
-# t5-small
+# llama_3 - works with Ranks
+# llama_3.1 - works with Ranks
+# t5-small - complex debug
 
-    model_name = "llama_3"  # Change this to test different models
-    compression_method = "Ranks"  # or "AC or Ranks"
+    model_name = "llama_3.1"  # Change this to test different models
+    compression_method = "AC"  # or "AC or Ranks"
     
     llmzip = LLMZip(model_name, compression_method)
     
