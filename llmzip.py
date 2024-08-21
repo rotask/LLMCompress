@@ -229,7 +229,7 @@ class LLMZip:
         
         
         if self.compression_method == "AC":
-            AC_decompress_file(self.model, self.tokenizer, input_path, output_path, 300)
+            AC_decompress_file(self.model, self.tokenizer, input_path, output_path, 500)
             
         elif self.compression_method == "Ranks":
             # ... (existing ranks decompression code)            

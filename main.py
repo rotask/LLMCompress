@@ -21,8 +21,8 @@ def main():
 # llama_3.1 - works with Ranks
 # t5-small - complex debug
 
-    model_name = "llama_3.1"  # Change this to test different models
-    compression_method = "AC"  # or "AC or Ranks"
+    model_name = "llama_3"  # Change this to test different models
+    compression_method = "Ranks"  # or "AC or Ranks"
     
     llmzip = LLMZip(model_name, compression_method)
     

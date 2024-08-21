@@ -1,1 +1,0 @@
-Data/small_test_string.txt
