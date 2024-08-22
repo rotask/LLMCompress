@@ -1,35 +1,25 @@
-2024-08-21 11:30:25,496 - INFO - Initialized LLMZip with model: llama_3 and compression method: Ranks
-2024-08-21 11:30:25,496 - INFO - Starting zipping process for file: Data/small_txt.txt
-2024-08-21 11:30:25,496 - INFO - Tokenizing text for language: small_txt using model: llama_3
-2024-08-21 11:30:25,496 - INFO - Loading tokens from file: Output_Files/Tokenssmall_txtTextllama_3.txt
-2024-08-21 11:30:25,507 - INFO - Tokenization complete. Number of tokens: 47418, Characters per token: 4.17
-2024-08-21 11:30:25,507 - INFO - Padding tokens...
-2024-08-21 11:30:25,507 - INFO - Padding amount: 198
-2024-08-21 11:30:25,507 - INFO - Padding complete. Total tokens after padding: torch.Size([93, 512])
-2024-08-21 11:30:25,508 - INFO - Calculating ranks and probabilities...
-2024-08-21 11:30:25,509 - INFO - Processing batch 1 of 2
-2024-08-21 11:31:55,290 - INFO - Processing token 301 of 512 in batch 1
-2024-08-21 11:33:38,028 - INFO - Processing token 101 of 512 in batch 2
-2024-08-21 11:35:29,850 - INFO - Ranks and probabilities calculation complete. Total ranks: 47616, Total probabilities: 47616
-2024-08-21 11:35:29,850 - INFO - Calculating entropy and redundancy...
-2024-08-21 11:35:29,907 - INFO - Entropy: 0.8473216455388604, Redundancy: 0.7919891381503971
-2024-08-21 11:35:29,931 - WARNING - Warning: Some ranks exceed the maximum limit of 65535
-2024-08-21 11:35:29,931 - WARNING - Overflow values: [128212 125819 128202 128096 128236 127219 128207 128255 124464 128150
-  79804 127954 116128 128216 125819  73710 127954 128150 115193  98395
-  72864 128230 120409 128050 116128 128122 125819 126497 126695 125105
- 125819 126543 121519 124462 128195 123037  84931 127768 128225 128230
- 126647 120505 120517 128150 128050  95741 127181 128214 128230 127320
- 125819 126338 127964 111196 115003 126338 127964 126117 128230 128236
- 121386 127069 100235 128236 125108 128211 126543 113363 128170 125766
- 126361 116796 127909 128239 125209 127964]
-2024-08-21 11:35:30,088 - INFO - Compression complete! Saved file as Output_Files/compressed_small_txt.txt.gpz
-2024-08-21 11:35:30,089 - INFO - Zipping process for Data/small_txt.txt completed successfully.
-2024-08-21 11:35:30,089 - INFO - Compression completed in 304.59 seconds
-2024-08-21 11:35:30,089 - INFO - Starting Unzipping process for file: Output_Files/compressed_small_txt.txt.gpz
-2024-08-21 11:35:30,090 - INFO - Padding amount: 198
-2024-08-21 11:35:30,092 - INFO - Getting Tokens...
-2024-08-21 11:35:30,093 - INFO - Processing batch 1 of 2
-2024-08-21 11:37:01,205 - INFO - Processing token 301 of 511 in batch 1
-2024-08-21 11:38:44,847 - INFO - Processing token 101 of 511 in batch 2
-2024-08-21 11:40:36,313 - INFO - Decompression Complete! Saved as Output_Files/decompressed_small_txt.txt
-2024-08-21 11:40:36,314 - INFO - Files MATCH - Zipping and Unzipping was done successfully!
+2024-08-21 16:23:09,849 - INFO - We will use 90% of the memory on device 0 for storing the model, and 10% for the buffer to avoid OOM. You can set `max_memory` in to a higher value to use more memory (at your own risk).
+2024-08-21 16:23:16,718 - INFO - Initialized LLMZip with model: llama_3 and compression method: AC
+2024-08-21 16:23:16,718 - INFO - Starting zipping process for file: Data/small_txt copy.txt
+2024-08-21 16:23:16,718 - INFO - Using device: NVIDIA A10G
+2024-08-21 16:23:16,719 - INFO - Starting compression for file: Data/small_txt copy.txt using model: llama_3
+2024-08-21 16:23:16,722 - INFO - Tokenization truncated to 500 tokens.
+2024-08-21 16:23:16,726 - INFO - Number of characters: 483, Number of tokens: 483, Ratio: 1.0
+2024-08-21 16:23:16,726 - INFO - Initial input shape: torch.Size([1, 1])
+2024-08-21 16:46:28,359 - INFO - Compression completed. Compressed data size: 40 bytes.
+2024-08-21 16:46:28,360 - ERROR - An error occurred: dict contains fields not in fieldnames: 'Time (mins)'
+2024-08-21 16:46:28,361 - ERROR - Traceback (most recent call last):
+  File "/teamspace/studios/this_studio/LLM_Refactored/main.py", line 34, in main
+    llmzip.zip(input_file, output_file)
+  File "/teamspace/studios/this_studio/LLM_Refactored/llmzip.py", line 107, in zip
+    AC_compress_file(self.model, self.model_name, self.tokenizer, input_path, output_path, 500)
+  File "/teamspace/studios/this_studio/LLM_Refactored/Arithmetic_Coder.py", line 104, in AC_compress_file
+    save_to_csv(model_name, language, num_characters, num_tokens, ratio, entropy, compression_ratio, redundancy, time_taken)
+  File "/teamspace/studios/this_studio/LLM_Refactored/Arithmetic_Coder.py", line 24, in save_to_csv
+    writer.writerow({
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/csv.py", line 154, in writerow
+    return self.writer.writerow(self._dict_to_list(rowdict))
+  File "/home/zeus/miniconda3/envs/cloudspace/lib/python3.10/csv.py", line 149, in _dict_to_list
+    raise ValueError("dict contains fields not in fieldnames: "
+ValueError: dict contains fields not in fieldnames: 'Time (mins)'
+

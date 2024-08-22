@@ -12,6 +12,7 @@ from models import get_model_and_tokenizer
 from compression import compress_ranks, decompress_ranks
 from Arithmetic_Coder import AC_compress_file, AC_decompress_file
 import logging
+import time
 
 class LLMZip:
     def __init__(self, model_name, compression_method):
@@ -97,6 +98,10 @@ class LLMZip:
         """
         
         logging.info(f"Starting zipping process for file: {input_path}")
+        
+        # Retrieve GPU name if available
+        gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
+        logging.info(f"Using device: {gpu_name}")
                     
         if self.compression_method == "AC":
             AC_compress_file(self.model, self.model_name, self.tokenizer, input_path, output_path, 500)
@@ -105,7 +110,8 @@ class LLMZip:
             # ... (existing ranks compression code)        
             with open(input_path, encoding="utf-8") as f:
                 text = f.read()    
-                        
+                
+            start_time = time.time()  # Start timing            
             num_characters = len(text)
             language = os.path.splitext(os.path.basename(input_path))[0]
             
@@ -211,8 +217,10 @@ class LLMZip:
             #     logging.info(f"Overflow map saved to {overflow_map_path}")
             
             compression_ratio = os.path.getsize(output_path) * 8 / num_characters
-            self.save_results(language, num_characters, num_tokens, char_per_token, entropy, compression_ratio, redundancy)
-            logging.info(f"Zipping process for {input_path} completed successfully.")
+            time_taken = (time.time() - start_time) / 60  # Calculate time in minutes
+            
+            self.save_results(language, num_characters, num_tokens, char_per_token, entropy, compression_ratio, redundancy, time_taken, gpu_name)
+            logging.info(f"Zipping process for {input_path} completed successfully in {time_taken:.2f} minutes.")
             
         else:
             raise ValueError(f"Invalid compression method: {self.compression_method}")
@@ -226,7 +234,6 @@ class LLMZip:
             output_path (str): Path to the output decompressed file.
         """
         logging.info(f"Starting Unzipping process for file: {input_path}")
-        
         
         if self.compression_method == "AC":
             AC_decompress_file(self.model, self.tokenizer, input_path, output_path, 500)
@@ -242,6 +249,7 @@ class LLMZip:
             with open(input_path, "rb") as file:
                 zipped_ranks = file.read()
                 
+            start_time = time.time()  # Start timing    
             ranks = decompress_ranks(zipped_ranks)
             
             with torch.no_grad():
@@ -298,7 +306,9 @@ class LLMZip:
                 # Save the decompressed text
                 with open(output_path, "w", encoding="utf-8") as f:
                     f.write(text)
-                logging.info(f"Decompression Complete! Saved as {output_path}")
+                    
+                time_taken = (time.time() - start_time) / 60  # Calculate time in minutes
+                logging.info(f"Decompression Completed in {time_taken:.2f} minutes! Saved as {output_path}")
         else:
             raise ValueError(f"Invalid compression method: {self.compression_method}")
             
@@ -330,12 +340,12 @@ class LLMZip:
             logging.error(f"An error occurred while reading the files: {e}")
             return False
         
-    def save_results(self, language, total_chars, token_length, char_token_ratio, entropy, compression_ratio, redundancy):
+    def save_results(self, language, total_chars, token_length, char_token_ratio, entropy, compression_ratio, redundancy, time_taken, gpu_name):
         csv_path = os.path.join(Config.RESULTS_DIR, f'{self.model_name}_data_{self.compression_method}.csv')
         file_exists = os.path.isfile(csv_path)
         
         with open(csv_path, mode='a', newline='') as file:
             writer = csv.writer(file)
             if not file_exists:
-                writer.writerow(['Text File', 'Total Characters', 'Total Tokens', 'Characters/Tokens', 'Entropy', 'Compression Ratio', 'Redundancy'])
-            writer.writerow([language, total_chars, token_length, char_token_ratio, entropy, compression_ratio, redundancy])
+                writer.writerow(['GPU Used','Text File', 'Total Characters', 'Total Tokens', 'Characters/Tokens', 'Entropy', 'Compression Ratio', 'Redundancy', 'Time(mins)'])
+            writer.writerow([gpu_name, language, total_chars, token_length, char_token_ratio, entropy, compression_ratio, redundancy, time_taken])

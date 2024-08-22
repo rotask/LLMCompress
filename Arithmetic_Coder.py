@@ -7,21 +7,36 @@ import logging
 from tqdm import tqdm
 import constriction
 from datetime import datetime
+import time
 from config import Config
 
-def save_to_csv(model, language, total_chars, token_length, char_token_ratio, entropy, compression_ratio, redundancy):
-        csv_path = os.path.join(Config.RESULTS_DIR, f'{model}_data_AC.csv')
-        file_exists = os.path.isfile(csv_path)
-        with open(csv_path, mode='a', newline='') as file:
-            writer = csv.writer(file)
-            
-            if not file_exists:
-                writer.writerow(['Language', 'Total Characters', 'Total Tokens', 'Characters/Tokens', 'Entropy', 'Compression Ratio', 'Redundancy'])
-
-            writer.writerow([language, total_chars, token_length, char_token_ratio, entropy, compression_ratio, redundancy])
-
+def save_to_csv(model_name, language, num_characters, num_tokens, ratio, entropy, compression_ratio, redundancy, time_taken):
+    csv_filename = os.path.join(Config.RESULTS_DIR, f'{model_name}AC_compression_results.csv')
+    file_exists = os.path.isfile(csv_filename)
+    
+    with open(csv_filename, mode='a', newline='') as csv_file:
+        fieldnames = ['Model', 'Language', 'Characters', 'Tokens', 'Ratio', 'Entropy', 'Compression Ratio', 'Redundancy', 'Time (mins)']
+        writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+        
+        if not file_exists:
+            writer.writeheader()
+        
+        writer.writerow({
+            'Model': model_name,
+            'Language': language,
+            'Characters': num_characters,
+            'Tokens': num_tokens,
+            'Ratio': ratio,
+            'Entropy': entropy,
+            'Compression Ratio': compression_ratio,
+            'Redundancy': redundancy,
+            'Time (mins)': time_taken
+        })
+    logging.info(f'Results saved to {csv_filename}')
+    
 def AC_compress_file(model, model_name, tokenizer, in_filename, out_filename, max_tokens=None):
     logging.info(f'Starting compression for file: {in_filename} using model: {model_name}')
+    start_time = time.time()
 
     language = os.path.splitext(os.path.basename(in_filename))[0]
     with open(in_filename, 'r', encoding='utf-8') as file:
@@ -35,7 +50,7 @@ def AC_compress_file(model, model_name, tokenizer, in_filename, out_filename, ma
     
     num_characters = len(tokenizer.batch_decode(tokens, skip_special_tokens=True)) 
     num_tokens = len(tokens)
-    ratio = num_characters / num_tokens
+    ratio = round(num_characters / num_tokens, 2)
     logging.info(f'Number of characters: {num_characters}, Number of tokens: {num_tokens}, Ratio: {ratio}')
 
     # Use all available GPUs
@@ -80,12 +95,19 @@ def AC_compress_file(model, model_name, tokenizer, in_filename, out_filename, ma
         compressed.tofile(f)
     
     compression_ratio = 8 * os.path.getsize(out_filename) / num_characters
-    save_to_csv(model_name, language, num_characters, num_tokens, ratio, entropy, compression_ratio, redundancy)
+    # save_to_csv(model_name, language, num_characters, num_tokens, ratio, entropy, compression_ratio, redundancy)
+    # logging.info(f'Compressed data written to "{out_filename}". Compression ratio: {compression_ratio:.2f}.')
+    
+    # Calculate the time taken
+    time_taken = (time.time() - start_time) / 60  # Time in minutes
+    
+    save_to_csv(model_name, language, num_characters, num_tokens, ratio, entropy, compression_ratio, redundancy, time_taken)
 
-    logging.info(f'Compressed data written to "{out_filename}". Compression ratio: {compression_ratio:.2f}.')
-
+    logging.info(f'Compressed data written to "{out_filename}". Compression ratio: {compression_ratio:.2f}. Time taken: {time_taken:.2f} minutes.')
+    
 def AC_decompress_file(model, tokenizer, in_filename, out_filename, num_tokens):
     logging.info(f'Starting decompression for file: {in_filename}')
+    start_time = time.time()
 
     compressed = np.fromfile(in_filename, dtype=np.uint32)
     if sys.byteorder != "little":
@@ -121,4 +143,6 @@ def AC_decompress_file(model, tokenizer, in_filename, out_filename, num_tokens):
         text = "".join(text)
         out_file.write(text)
 
-    logging.info(f'Decompression complete. Decompressed data written to "{out_filename}".')
+    # logging.info(f'Decompression complete. Decompressed data written to "{out_filename}".')
+    time_taken = (time.time() - start_time) / 60  # Time in minutes
+    logging.info(f'Decompression complete. Decompressed data written to "{out_filename}". Time taken: {time_taken:.2f} minutes.')

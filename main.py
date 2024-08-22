@@ -21,12 +21,12 @@ def main():
 # llama_3.1 - works with Ranks
 # t5-small - complex debug
 
-    model_name = "llama_3"  # Change this to test different models
+    model_name = "Nemo"  # Change this to test different models
     compression_method = "Ranks"  # or "AC or Ranks"
     
     llmzip = LLMZip(model_name, compression_method)
     
-    input_file = "Data/small_txt.txt"  # Change this to test different datasets
+    input_file = "Data/bookcorpus_1MB.txt"  # Change this to test different datasets
     output_file = os.path.join(Config.OUTPUT_DIR, f"compressed_{os.path.basename(input_file)}.gpz")
     
     try:
@@ -37,9 +37,9 @@ def main():
         logging.info(f"Compression completed in {end_time - start_time:.2f} seconds")
         
         # Optionally, test decompression and check if files match
-        decompressed_file = os.path.join(Config.OUTPUT_DIR, f"decompressed_{os.path.basename(input_file)}")
-        llmzip.unzip(output_file, decompressed_file)
-        llmzip.check(input_file, decompressed_file)
+        # decompressed_file = os.path.join(Config.OUTPUT_DIR, f"decompressed_{os.path.basename(input_file)}")
+        # llmzip.unzip(output_file, decompressed_file)
+        # llmzip.check(input_file, decompressed_file)
         
     except Exception as e:
         logging.error(f"An error occurred: {e}")
