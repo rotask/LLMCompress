@@ -1,0 +1,2 @@
+GPU Used,Text File,Context Size,Batch Size,Total Characters,Total Tokens,Characters/Tokens,Entropy,Compression Ratio,Redundancy,Time(mins)
+NVIDIA L4,text8_1MB,256,128,1048576,203334,5.16,0.40017592906951904,0.6072006225585938,0.5171779795442069,15.357712948322296

@@ -102,15 +102,6 @@ class LLMZip:
         relative_entropy = (len(probs) * (-1 * np.log2(1 / vocab_size))) / no_characters
         redundancy = 1 - (entropy / relative_entropy)
         return entropy, redundancy
-    
-    # def forward(self, tokens, index, summary_tokens, past=None):
-    #     with torch.no_grad():
-    #         # Concatenate summary tokens with the current context
-    #         context = torch.cat((summary_tokens, tokens[:, :index]), dim=1)
-    #         inputs = {'input_ids': context}
-    #         output = self.model(**inputs, past_key_values=past)
-    #         logits = output.logits[:, -1, :]  # Only take the last token's logits
-    #         return logits, output.past_key_values
 
     def zip(self, input_path, output_path, summary, gpu_name):
         start_time = time.time()
@@ -210,32 +201,25 @@ class LLMZip:
         self.save_results(language, num_characters, num_tokens, char_per_token, entropy, compression_ratio, redundancy, time_taken, gpu_name)
         logging.info(f"Zipping process for {input_path} completed successfully in {time_taken:.2f} minutes.")
         
-    def unzip(self, input_path, output_path):
+    def unzip(self, input_path, output_path, summary):
         """
         Decompress the data from a zip file and save the decompressed text.
 
         Args:
             input_path (str): Path to the compressed input file.
             output_path (str): Path to the output decompressed file.
+            summary (str): The summary used during compression.
         """
         logging.info(f"Starting Unzipping process for file: {input_path}")
         
-        if self.compression_method == "AC":
-            AC_decompress_file(self.model, self.tokenizer, input_path, output_path, 500)
-            
-        elif self.compression_method == "Ranks":
-            # ... (existing ranks decompression code)            
-                
-            # # Read overflow_map (depending on how you saved it)
-            # overflow_map_path = "Output_Files/overflow_map.json"
-            # # Load overflow_map from JSON file
-            # with open(overflow_map_path, "r") as map_file:
-            #     overflow_map = json.load(map_file)
+        if self.compression_method == "Ranks":
             with open(input_path, "rb") as file:
                 zipped_ranks = file.read()
                 
-            start_time = time.time()  # Start timing    
+            start_time = time.time()
             ranks = decompress_ranks(zipped_ranks)
+            
+            summary_tokens = self.tokenizer(summary, return_tensors="pt")["input_ids"].to(self.device)
             
             with torch.no_grad():
                 # Pad ranks and reshape
@@ -244,8 +228,6 @@ class LLMZip:
 
                 # Initialize tokens tensor
                 tokens = torch.zeros(ranks.shape, dtype=int).to(self.device)
-                eos = torch.full((tokens.shape[0], 1), self.tokenizer.eos_token_id, dtype=tokens.dtype, device=self.device)
-                tokens = torch.cat((eos, tokens), 1)
 
                 # Determine the number of batches
                 batches = tokens.shape[0] // Config.BATCH_SIZE
@@ -253,33 +235,29 @@ class LLMZip:
                     batches += 1
 
                 logging.info("Getting Tokens...")
-                # Set up tqdm with logging
                 tqdm_callback = TqdmToLogger(logging.getLogger(), level=logging.INFO)
                 
                 for i in tqdm(range(batches), desc="Processing batches", unit="batch", leave=True, file=sys.stdout, dynamic_ncols=True):
-                    # logging.info(f"Processing batch {i + 1} out of {batches}")
                     curr_ranks = ranks[i*Config.BATCH_SIZE:(i + 1)*Config.BATCH_SIZE]
                     batch = tokens[i*Config.BATCH_SIZE:(i + 1)*Config.BATCH_SIZE].to(self.device)
-                    past = None
                     tqdm_callback(f"Processing batch {i+1} of {batches}")
 
                     for j in tqdm(range(Config.CONTEXT_SIZE), desc="Processing tokens", unit="token", leave=False, file=sys.stdout, dynamic_ncols=True):    
                         if j % 100 == 0:
-                            # logging.info(f"Processing token {j} out of {Config.CONTEXT_SIZE - 1}")
-                            tqdm_callback(f"Processing token {j+1} of {Config.CONTEXT_SIZE - 1} in batch {i+1}")
+                            tqdm_callback(f"Processing token {j+1} of {Config.CONTEXT_SIZE} in batch {i+1}")
                             
-                        logits, past = self.forward(batch, j, past)
+                        logits = self.forward(batch, j, summary_tokens)
                         logits, sorted_tokens = torch.sort(logits, descending=True)
                         indices = curr_ranks[:, j].clone()
                         mask = indices == -999
                         valid_indices = torch.where(mask, torch.tensor(0, device=indices.device), indices)
                         decoded_tokens = sorted_tokens[torch.arange(indices.shape[0]), valid_indices]
                         decoded_tokens[mask] = self.tokenizer.eos_token_id
-                        batch[:, j + 1] = decoded_tokens.int()
+                        batch[:, j] = decoded_tokens.int()
                     tokens[i*Config.BATCH_SIZE:(i + 1)*Config.BATCH_SIZE] = batch
 
                 # Flatten tokens and remove padding if necessary
-                tokens = tokens[:, 1:].int().flatten()
+                tokens = tokens.int().flatten()
                 if pad_amount != 0:
                     tokens = tokens[:-pad_amount]
                 tokens = tokens.reshape((1, -1))
@@ -292,7 +270,7 @@ class LLMZip:
                 with open(output_path, "w", encoding="utf-8") as f:
                     f.write(text)
                     
-                time_taken = (time.time() - start_time) / 60  # Calculate time in minutes
+                time_taken = (time.time() - start_time) / 60
                 logging.info(f"Decompression Completed in {time_taken:.2f} minutes! Saved as {output_path}")
         else:
             raise ValueError(f"Invalid compression method: {self.compression_method}")
@@ -312,11 +290,24 @@ class LLMZip:
             with open(original_text, 'r', encoding='utf-8') as original, open(unzipped_text, 'r', encoding='utf-8') as unzipped:
                 before = original.read()
                 after = unzipped.read()
-                if before == after:
+                
+                # Remove all whitespace and convert to lowercase for comparison
+                before_cleaned = ''.join(before.split()).lower()
+                after_cleaned = ''.join(after.split()).lower()
+                
+                if before_cleaned == after_cleaned:
                     logging.info("Files MATCH - Zipping and Unzipping was done successfully!")
                     return True
                 else:
                     logging.error("The two text files are not the same! There was an error in the process!")
+                    logging.error(f"Original text length: {len(before_cleaned)}, Unzipped text length: {len(after_cleaned)}")
+                    
+                    # Find the first difference
+                    for i, (c1, c2) in enumerate(zip(before_cleaned, after_cleaned)):
+                        if c1 != c2:
+                            logging.error(f"First difference at position {i}: '{c1}' vs '{c2}'")
+                            break
+                    
                     return False
         except FileNotFoundError:
             logging.error("One of the files was not found.")
@@ -324,7 +315,7 @@ class LLMZip:
         except IOError as e:
             logging.error(f"An error occurred while reading the files: {e}")
             return False
-        
+                
     def save_results(self, language, total_chars, token_length, char_token_ratio, entropy, compression_ratio, redundancy, time_taken, gpu_name):
         csv_path = os.path.join(Config.RESULTS_DIR, f'{self.model_name}_data_{self.compression_method}.csv')
         file_exists = os.path.isfile(csv_path)

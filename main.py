@@ -53,16 +53,16 @@ def main():
                 logging.info(f"CONTEXT_SIZE: {Config.CONTEXT_SIZE}")
                 logging.info(f"BATCH_SIZE: {Config.BATCH_SIZE}")
                 
-                start_time = time.time()
-                llmzip.zip(input_file, output_file, summary, gpu_name)
-                end_time = time.time()
+                # start_time = time.time()
+                # llmzip.zip(input_file, output_file, summary, gpu_name)
+                # end_time = time.time()
                 
-                logging.info(f"Compression of {input_file} with CONTEXT_SIZE={context_size} completed in {end_time - start_time:.2f} seconds")
+                # logging.info(f"Compression of {input_file} with CONTEXT_SIZE={context_size} completed in {end_time - start_time:.2f} seconds")
                 
                 # Optionally, test decompression and check if files match
-                # decompressed_file = os.path.join(Config.OUTPUT_DIR, f"decompressed_{context_size}_{os.path.basename(input_file)}")
-                # llmzip.unzip(output_file, decompressed_file)
-                # llmzip.check(input_file, decompressed_file)
+                decompressed_file = os.path.join(Config.OUTPUT_DIR, f"decompressed_{context_size}_{os.path.basename(input_file)}")
+                llmzip.unzip(output_file, decompressed_file, summary)
+                llmzip.check(input_file, decompressed_file)
                 
             except Exception as e:
                 logging.error(f"An error occurred while processing {input_file} with CONTEXT_SIZE={context_size}: {e}")
