@@ -40,7 +40,7 @@ def main():
     ]
 
     # List of CONTEXT_SIZE values to iterate over
-    context_sizes = [256]
+    context_sizes = [512]
 
     for context_size in context_sizes:
         Config.CONTEXT_SIZE = context_size  # Update CONTEXT_SIZE in Config
@@ -53,11 +53,11 @@ def main():
                 logging.info(f"CONTEXT_SIZE: {Config.CONTEXT_SIZE}")
                 logging.info(f"BATCH_SIZE: {Config.BATCH_SIZE}")
                 
-                # start_time = time.time()
-                # llmzip.zip(input_file, output_file, summary, gpu_name)
-                # end_time = time.time()
+                start_time = time.time()
+                llmzip.zip(input_file, output_file, summary, gpu_name)
+                end_time = time.time()
                 
-                # logging.info(f"Compression of {input_file} with CONTEXT_SIZE={context_size} completed in {end_time - start_time:.2f} seconds")
+                logging.info(f"Compression of {input_file} with CONTEXT_SIZE={context_size} completed in {end_time - start_time:.2f} seconds")
                 
                 # Optionally, test decompression and check if files match
                 decompressed_file = os.path.join(Config.OUTPUT_DIR, f"decompressed_{context_size}_{os.path.basename(input_file)}")

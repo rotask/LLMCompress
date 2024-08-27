@@ -177,10 +177,10 @@ pyrightconfig.json
 .sh
 
 # Output folder
-# Output_Files/
+Output_Files/
 
 # Logs folder
-# Logs/
+Logs/
 
 # Gmail notification
 gmail_notification.py
