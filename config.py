@@ -1,7 +1,7 @@
 import os
 
 class Config:
-    CONTEXT_SIZE = 512
+    CONTEXT_SIZE = 1024
     BATCH_SIZE = 128
     LOGS_DIR = 'Logs'
     RESULTS_DIR = 'Results'
