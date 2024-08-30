@@ -29,7 +29,7 @@ def parse_arguments():
                         help="Context size for processing (default: 512)")
     parser.add_argument("--input_file", type=str, default="Data/text8_1MB.txt",
                         help="Path to the input file")
-    parser.add_argument("--summary", type=str, default="",
+    parser.add_argument("--summary", type=str, default="This is a summary",
                         help="Summary text to use as side information")
     
     # Parse known args, ignoring any extra args
@@ -63,7 +63,7 @@ def main():
         logging.info(f"Output File: {output_file}")
 
         start_time = time.time()
-        llmzip.zip(args.input_file, output_file, args.summary, gpu_name)
+        llmzip.zip(args.input_file, args.summary, gpu_name)
         end_time = time.time()
 
         logging.info(f"Compression completed in {end_time - start_time:.2f} seconds")

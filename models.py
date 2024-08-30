@@ -22,7 +22,7 @@ def get_model_and_tokenizer(model_name):
         tokenizer = AutoTokenizer.from_pretrained("mistralai/Mixtral-8x7B-v0.1")
     elif model_name == "gpt2":
         model = GPT2LMHeadModel.from_pretrained("gpt2",
-            quantization_config=bnb_config,
+            # quantization_config=bnb_config,
             # attn_implementation="flash_attention_2", 
             device_map="auto"
         )
