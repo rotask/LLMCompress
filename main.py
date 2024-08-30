@@ -1,3 +1,4 @@
+import argparse
 from llmzip import LLMZip
 from logger import setup_logging
 from config import Config
@@ -7,67 +8,75 @@ import traceback
 import os
 import torch
 
-os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:64'
-# os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
-
-def main():
-    setup_logging()
-    Config.ensure_directories()
-    gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
-    
-    summary = "Summary: Anarchism is a political philosophy that advocates for the abolition of rulers and authoritarian institutions, promoting a society based on voluntary association, mutual aid, and self-governance. The term originated as an insult during the English and French revolutions but was later adopted positively by self-defined anarchists. Key figures in anarchist thought include William Godwin, Pierre-Joseph Proudhon, and Peter Kropotkin. Anarchism encompasses various movements, including anarcho-communism, individualist anarchism, and anarcho-syndicalism, each with differing views on economics and social organization."
-
-    # Mixtral - out of memory for 1 L4
-    # gpt2 - works with Ranks
-    # Yi - out of memory for 1 L4
-    # Nemo - Mistral-Nemo-Base-2407  - works with Ranks
-    # llama_2 - out of memory for 1 L4
-    # llama_3 - works with Ranks
-    # llama_3.1 - works with Ranks
-    # Mistral_7B - complex debug
-    
-    model_name = "gpt2"  # Change this to test different models
-    compression_method = "Ranks"  # or "AC or Ranks"
-    
-    llmzip = LLMZip(model_name, compression_method)
-
-    # List of input files to process
-    input_files = [
-        # "Data/bookcorpus_1MB.txt",
-        # "Data/bookcorpus_1MB_with_summary.txt",
-        "Data/text8_1MB.txt",
-        # "Data/text8_1MB_with_summary.txt"
+def get_available_models():
+    return [
+        "Mixtral", "gpt2", "Yi", "Nemo", "llama_2", 
+        "llama_3", "llama_3.1", "Mistral_7B"
     ]
 
-    # List of CONTEXT_SIZE values to iterate over
-    context_sizes = [512]
+def get_compression_methods():
+    return ["Ranks", "AC"]
 
-    for context_size in context_sizes:
-        Config.CONTEXT_SIZE = context_size  # Update CONTEXT_SIZE in Config
+def parse_arguments():
+    parser = argparse.ArgumentParser(description="Run LLMZip experiments")
+    parser.add_argument("--model", choices=get_available_models(), default="gpt2",
+                        help="Name of the model to use")
+    parser.add_argument("--compression_method", choices=get_compression_methods(), default="Ranks",
+                        help="Compression method to use")
+    parser.add_argument("--batch_size", type=int, default=64,
+                        help="Batch size for processing (default: 64)")
+    parser.add_argument("--context_size", type=int, default=512,
+                        help="Context size for processing (default: 512)")
+    parser.add_argument("--input_file", type=str, default="Data/text8_1MB.txt",
+                        help="Path to the input file")
+    parser.add_argument("--summary", type=str, default="",
+                        help="Summary text to use as side information")
+    
+    # Parse known args, ignoring any extra args
+    args, unknown = parser.parse_known_args()
+    return args
 
-        for input_file in input_files:
-            output_file = os.path.join(Config.OUTPUT_DIR, f"compressed_{context_size}_{os.path.basename(input_file)}.gpz")
-            
-            try:
-                # Log CONTEXT_SIZE and BATCH_SIZE from Config
-                logging.info(f"CONTEXT_SIZE: {Config.CONTEXT_SIZE}")
-                logging.info(f"BATCH_SIZE: {Config.BATCH_SIZE}")
-                
-                start_time = time.time()
-                llmzip.zip(input_file, output_file, summary, gpu_name)
-                end_time = time.time()
-                
-                logging.info(f"Compression of {input_file} with CONTEXT_SIZE={context_size} completed in {end_time - start_time:.2f} seconds")
-                
-                # Optionally, test decompression and check if files match
-                decompressed_file = os.path.join(Config.OUTPUT_DIR, f"decompressed_{context_size}_{os.path.basename(input_file)}")
-                llmzip.unzip(output_file, decompressed_file, summary)
-                llmzip.check(input_file, decompressed_file)
-                
-            except Exception as e:
-                logging.error(f"An error occurred while processing {input_file} with CONTEXT_SIZE={context_size}: {e}")
-                error_trace = traceback.format_exc()
-                logging.error(error_trace)
+def main():
+    args = parse_arguments()
+    setup_logging()
+    Config.ensure_directories()
+    
+    # Update Config with command-line arguments or defaults
+    Config.update(
+        BATCH_SIZE=args.batch_size,
+        CONTEXT_SIZE=args.context_size
+    )
+
+    gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
+
+    llmzip = LLMZip(args.model, args.compression_method)
+
+    try:
+        logging.info(f"Starting experiment with the following parameters:")
+        logging.info(f"Model: {args.model}")
+        logging.info(f"Compression Method: {args.compression_method}")
+        logging.info(f"Batch Size: {Config.BATCH_SIZE}")
+        logging.info(f"Context Size: {Config.CONTEXT_SIZE}")
+        logging.info(f"Input File: {args.input_file}")
+
+        output_file = Config.get_output_file_path(args.input_file, args.model, args.compression_method)
+        logging.info(f"Output File: {output_file}")
+
+        start_time = time.time()
+        llmzip.zip(args.input_file, output_file, args.summary, gpu_name)
+        end_time = time.time()
+
+        logging.info(f"Compression completed in {end_time - start_time:.2f} seconds")
+
+        # Optionally, test decompression and check if files match
+        decompressed_file = os.path.join(Config.OUTPUT_DIR, f"decompressed_{os.path.basename(args.input_file)}")
+        llmzip.unzip(output_file, decompressed_file)
+        llmzip.check(args.input_file, decompressed_file)
+
+    except Exception as e:
+        logging.error(f"An error occurred during the experiment: {e}")
+        error_trace = traceback.format_exc()
+        logging.error(error_trace)
 
 if __name__ == "__main__":
     main()

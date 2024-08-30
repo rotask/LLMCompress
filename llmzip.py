@@ -103,60 +103,81 @@ class LLMZip:
         redundancy = 1 - (entropy / relative_entropy)
         return entropy, redundancy
 
-    def zip(self, input_path, output_path, summary, gpu_name):
+    def zip(self, input_path, summary, gpu_name):
         start_time = time.time()
         logging.info(f"Starting zipping process for file: {input_path}")
         logging.info(f"Using GPU: {gpu_name}")
+
+        output_path = Config.get_output_file_path(input_path, self.model_name, self.compression_method)
+        logging.info(f"Output will be saved to: {output_path}")
 
         with open(input_path, encoding="utf-8") as f:
             text = f.read()
 
         num_characters = len(text)
-        logging.info(f"Number of characters in input: {num_characters}")
+        language = os.path.splitext(os.path.basename(input_path))[0]
 
-        tokens = self.tokenize(text, os.path.splitext(os.path.basename(input_path))[0])
+        tokens = self.tokenize(text, language)
         summary_tokens = self.tokenizer(summary, return_tensors="pt")["input_ids"].to(self.device)
+        summary_length = summary_tokens.shape[1]
+
         logging.info(f"Tokens shape: {tokens.shape}, Summary tokens shape: {summary_tokens.shape}")
 
         num_tokens = len(tokens)
         char_per_token = f"{num_characters / num_tokens:.2f}"
-        logging.info(f"Number of tokens: {num_tokens}, Characters per token: {char_per_token}")
+
+        logging.info(f"Tokenization complete. Number of tokens: {num_tokens}, Characters per token: {char_per_token}")
 
         tokens, pad_amount = self.pad(tokens, self.tokenizer.eos_token_id)
-        logging.info(f"Padding amount: {pad_amount}")
         tokens = tokens.reshape(-1, Config.CONTEXT_SIZE)
         tokens = tokens.to(self.device)
+
         logging.info(f"Tokens shape after padding and reshaping: {tokens.shape}")
 
         ranks = torch.zeros((tokens.shape[0], Config.CONTEXT_SIZE), dtype=torch.int32)
         probs = torch.zeros((tokens.shape[0], Config.CONTEXT_SIZE))
 
+        logging.info(f"Ranks shape: {ranks.shape}, Probs shape: {probs.shape}")
+
         batches = tokens.shape[0] // Config.BATCH_SIZE
         if tokens.shape[0] % Config.BATCH_SIZE != 0:
             batches += 1
+
         logging.info(f"Total batches: {batches}")
 
-        for i in tqdm(range(batches), desc="Processing batches", unit="batch"):
+        tqdm_callback = TqdmToLogger(logging.getLogger(), level=logging.INFO)
+        for i in tqdm(range(batches), desc="Processing batches", unit="batch", leave=True, file=sys.stdout, dynamic_ncols=True):
             batch = tokens[i*Config.BATCH_SIZE:(i+1)*Config.BATCH_SIZE]
-            logging.info(f"Processing batch {i+1}/{batches}, shape: {batch.shape}")
+            logging.info(f"Batch {i+1} shape: {batch.shape}")
 
             curr_ranks = torch.zeros((batch.shape[0], Config.CONTEXT_SIZE), dtype=torch.int32)
             curr_probs = torch.zeros((batch.shape[0], Config.CONTEXT_SIZE))
 
-            for j in tqdm(range(Config.CONTEXT_SIZE), desc="Processing tokens", unit="token", leave=False):
-                logits = self.forward(batch, j, summary_tokens)
-                logits, sorted_tokens = torch.sort(logits, descending=True)
-                probabilities = F.softmax(logits, dim=-1)
+            for j in tqdm(range(Config.CONTEXT_SIZE), desc="Processing tokens", unit="token", leave=False, file=sys.stdout, dynamic_ncols=True):
+                if j % 100 == 0:
+                    tqdm_callback(f"Processing token {j+1} of {Config.CONTEXT_SIZE} in batch {i+1}")
 
-                next_tokens = batch[:, j]
-                next_tokens_expanded = next_tokens.view(-1, 1).expand_as(sorted_tokens)
-                rank_indices = (sorted_tokens == next_tokens_expanded).nonzero(as_tuple=True)[1]
-                curr_ranks[:, j] = rank_indices
-                curr_probs[:, j] = probabilities.gather(1, rank_indices.view(-1, 1)).squeeze()
+                try:
+                    logits = self.forward(batch, j, summary_tokens)
+                    logging.info(f"Logits shape: {logits.shape}")
+
+                    logits, sorted_tokens = torch.sort(logits, descending=True)
+                    probabilities = F.softmax(logits, dim=-1)
+
+                    next_tokens = batch[:, j]
+                    next_tokens_expanded = next_tokens.view(-1, 1).expand_as(sorted_tokens)
+                    rank_indices = (sorted_tokens == next_tokens_expanded).nonzero(as_tuple=True)[1]
+                    curr_ranks[:, j] = rank_indices
+                    curr_probs[:, j] = probabilities.gather(1, rank_indices.view(-1, 1)).squeeze()
+                except Exception as e:
+                    logging.error(f"Error processing token {j} in batch {i}: {str(e)}")
+                    logging.error(f"Current shapes - Batch: {batch.shape}, Summary tokens: {summary_tokens.shape}")
+                    raise
 
             ranks[i*Config.BATCH_SIZE:(i+1)*Config.BATCH_SIZE] = curr_ranks
             probs[i*Config.BATCH_SIZE:(i+1)*Config.BATCH_SIZE] = curr_probs
 
+        # Remove padding
         if pad_amount > 0:
             logging.info(f"Removing {pad_amount} padding tokens")
             ranks = ranks[:, :-pad_amount]
@@ -172,18 +193,17 @@ class LLMZip:
         logging.info(f"Entropy: {entropy}, Redundancy: {redundancy}")
 
         zipped_ranks = compress_ranks(ranks)
-        logging.info(f"Compressed ranks size: {len(zipped_ranks)} bytes")
 
         with open(output_path, "wb") as file:
             file.write(zipped_ranks)
-        logging.info(f"Compression complete! Saved file as {output_path}")
+            logging.info(f"Compression complete! Saved file as {output_path}")
 
         compression_ratio = os.path.getsize(output_path) * 8 / num_characters
         time_taken = (time.time() - start_time) / 60
 
-        self.save_results(os.path.basename(input_path), num_characters, num_tokens, char_per_token, entropy, compression_ratio, redundancy, time_taken, gpu_name)
-        logging.info(f"Zipping process completed in {time_taken:.2f} minutes.")  
-          
+        self.save_results(language, num_characters, num_tokens, char_per_token, entropy, compression_ratio, redundancy, time_taken, gpu_name)
+        logging.info(f"Zipping process for {input_path} completed successfully in {time_taken:.2f} minutes.")
+
     def unzip(self, input_path, output_path, summary):
         logging.info(f"Starting Unzipping process for file: {input_path}")
 
@@ -290,10 +310,10 @@ class LLMZip:
             logging.error(f"An error occurred while reading the files: {e}")
             return False
                     
-        def save_results(self, language, total_chars, token_length, char_token_ratio, entropy, compression_ratio, redundancy, time_taken, gpu_name):
+    def save_results(self, language, total_chars, token_length, char_token_ratio, entropy, compression_ratio, redundancy, time_taken, gpu_name):
             csv_path = os.path.join(Config.RESULTS_DIR, f'{self.model_name}_data_{self.compression_method}.csv')
             file_exists = os.path.isfile(csv_path)
-            
+
             with open(csv_path, mode='a', newline='') as file:
                 writer = csv.writer(file)
                 if not file_exists:
