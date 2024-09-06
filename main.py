@@ -70,7 +70,7 @@ def main():
 
         # Optionally, test decompression and check if files match
         decompressed_file = os.path.join(Config.OUTPUT_DIR, f"decompressed_{os.path.basename(args.input_file)}")
-        llmzip.unzip(output_file, decompressed_file)
+        llmzip.unzip(output_file, decompressed_file, args.summary)
         llmzip.check(args.input_file, decompressed_file)
 
     except Exception as e:

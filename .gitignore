@@ -182,6 +182,10 @@ Output_Files/
 # Logs folder
 Logs/
 
+Zlib/
+
 # Gmail notification
 gmail_notification.py
+gmail.py
+
 # End of https://www.toptal.com/developers/gitignore/api/python
