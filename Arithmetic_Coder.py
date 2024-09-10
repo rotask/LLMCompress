@@ -11,6 +11,20 @@ import time
 from config import Config
 
 def save_to_csv(model_name, language, num_characters, num_tokens, ratio, entropy, compression_ratio, redundancy, time_taken):
+    """
+    Save compression results to a CSV file.
+
+    Args:
+        model_name (str): Name of the model used for compression.
+        language (str): Language of the compressed text.
+        num_characters (int): Number of characters in the original text.
+        num_tokens (int): Number of tokens in the tokenized text.
+        ratio (float): Ratio of characters to tokens.
+        entropy (float): Calculated entropy of the compressed data.
+        compression_ratio (float): Achieved compression ratio.
+        redundancy (float): Calculated redundancy.
+        time_taken (float): Time taken for compression in minutes.
+    """
     csv_filename = os.path.join(Config.RESULTS_DIR, f'{model_name}AC_compression_results.csv')
     file_exists = os.path.isfile(csv_filename)
     
@@ -35,6 +49,17 @@ def save_to_csv(model_name, language, num_characters, num_tokens, ratio, entropy
     logging.info(f'Results saved to {csv_filename}')
     
 def AC_compress_file(model, model_name, tokenizer, in_filename, out_filename, max_tokens=None):
+    """
+    Compress a file using Arithmetic Coding.
+
+    Args:
+        model: The language model to use for compression.
+        model_name (str): Name of the model.
+        tokenizer: The tokenizer associated with the model.
+        in_filename (str): Path to the input file.
+        out_filename (str): Path to save the compressed file.
+        max_tokens (int, optional): Maximum number of tokens to process.
+    """
     logging.info(f'Starting compression for file: {in_filename} using model: {model_name}')
     start_time = time.time()
 
@@ -53,12 +78,7 @@ def AC_compress_file(model, model_name, tokenizer, in_filename, out_filename, ma
     ratio = round(num_characters / num_tokens, 2)
     logging.info(f'Number of characters: {num_characters}, Number of tokens: {num_tokens}, Ratio: {ratio}')
 
-    # Use all available GPUs
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    # if torch.cuda.device_count() > 1:
-    #     logging.info(f'Multiple GPUs detected: {torch.cuda.device_count()}. Using DataParallel.')
-    #     model = torch.nn.DataParallel(model)
-    # model.to(device)
 
     probs = []
     encoder = constriction.stream.queue.RangeEncoder()
@@ -95,10 +115,6 @@ def AC_compress_file(model, model_name, tokenizer, in_filename, out_filename, ma
         compressed.tofile(f)
     
     compression_ratio = 8 * os.path.getsize(out_filename) / num_characters
-    # save_to_csv(model_name, language, num_characters, num_tokens, ratio, entropy, compression_ratio, redundancy)
-    # logging.info(f'Compressed data written to "{out_filename}". Compression ratio: {compression_ratio:.2f}.')
-    
-    # Calculate the time taken
     time_taken = (time.time() - start_time) / 60  # Time in minutes
     
     save_to_csv(model_name, language, num_characters, num_tokens, ratio, entropy, compression_ratio, redundancy, time_taken)
@@ -106,6 +122,16 @@ def AC_compress_file(model, model_name, tokenizer, in_filename, out_filename, ma
     logging.info(f'Compressed data written to "{out_filename}". Compression ratio: {compression_ratio:.2f}. Time taken: {time_taken:.2f} minutes.')
     
 def AC_decompress_file(model, tokenizer, in_filename, out_filename, num_tokens):
+    """
+    Decompress a file compressed using Arithmetic Coding.
+
+    Args:
+        model: The language model to use for decompression.
+        tokenizer: The tokenizer associated with the model.
+        in_filename (str): Path to the compressed input file.
+        out_filename (str): Path to save the decompressed file.
+        num_tokens (int): Number of tokens to decompress.
+    """
     logging.info(f'Starting decompression for file: {in_filename}')
     start_time = time.time()
 
@@ -115,10 +141,6 @@ def AC_decompress_file(model, tokenizer, in_filename, out_filename, num_tokens):
     decoder = constriction.stream.queue.RangeDecoder(compressed)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    # if torch.cuda.device_count() > 1:
-    #     logging.info(f'Multiple GPUs detected: {torch.cuda.device_count()}. Using DataParallel.')
-    #     model = torch.nn.DataParallel(model)
-    # model.to(device)
 
     tokens = []
 
@@ -143,6 +165,5 @@ def AC_decompress_file(model, tokenizer, in_filename, out_filename, num_tokens):
         text = "".join(text)
         out_file.write(text)
 
-    # logging.info(f'Decompression complete. Decompressed data written to "{out_filename}".')
     time_taken = (time.time() - start_time) / 60  # Time in minutes
     logging.info(f'Decompression complete. Decompressed data written to "{out_filename}". Time taken: {time_taken:.2f} minutes.')

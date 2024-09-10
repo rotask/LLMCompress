@@ -46,7 +46,7 @@ LLMCompress is a software tool that leverages Large Language Models (LLMs) for e
 Run experiments using the `main.py` script:
 
 ```
-python main.py --model gpt2 --compression_method Ranks --input_file "Data/text8_1MB.txt" --batch_size 32 --context_size 512 --summary "Experiment-specific context"
+python main.py --model gpt2 --compression_method Ranks --input_file "Data/text8_1MB.txt" --batch_size 32 --context_size 512
 ```
 
 For a list of all available options:
