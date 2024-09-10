@@ -1,4 +1,4 @@
-# LLMZip Summary Feature
+# LLMCompress Summary Feature
 
 This branch introduces a new feature that uses a summary as side information for improved compression.
 
