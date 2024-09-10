@@ -190,7 +190,7 @@ environment.yml
 # Gmail notification
 gmail_notification.py
 gmail.py
-kill_processes.sh
+kill_gpu_processes.sh
 
 text_extractor.py
 text_extractor_datasets.py
