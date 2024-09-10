@@ -183,9 +183,16 @@ Output_Files/
 Logs/
 
 Zlib/
+Data/
+Results/
+environment.yml
 
 # Gmail notification
 gmail_notification.py
 gmail.py
+kill_processes.sh
+
+text_extractor.py
+text_extractor_datasets.py
 
 # End of https://www.toptal.com/developers/gitignore/api/python
