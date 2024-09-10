@@ -10,3 +10,17 @@
 2024-09-10 14:55:34,816 - INFO - Calculating ranks and probabilities...
 2024-09-10 14:55:34,818 - INFO - Processing batch 1 of 4
 2024-09-10 14:55:48,445 - INFO - Processing token 301 of 512 in batch 1
+2024-09-10 14:56:14,716 - INFO - Processing token 101 of 512 in batch 2
+2024-09-10 14:56:52,300 - INFO - Processing batch 3 of 4
+2024-09-10 14:57:19,422 - INFO - Processing token 401 of 512 in batch 3
+2024-09-10 14:57:34,597 - INFO - Processing token 201 of 512 in batch 4
+2024-09-10 14:57:38,126 - INFO - Ranks and probabilities calculation complete. Total ranks: 203776, Total probabilities: 203776
+2024-09-10 14:57:38,126 - INFO - Calculating entropy and redundancy...
+2024-09-10 14:57:38,128 - INFO - Entropy: 1.1935008764266968, Redundancy: 0.6058931223286509
+2024-09-10 14:57:38,908 - INFO - Compression complete! Saved file as Output_Files/compressed_text8_1MB.txt.gpz
+2024-09-10 14:57:38,908 - INFO - Zipping process for Data/text8_1MB.txt completed successfully in 2.07 minutes.
+2024-09-10 14:57:38,908 - INFO - Compression completed in 124.12 seconds
+2024-09-10 14:57:38,908 - INFO - Starting Unzipping process for file: Output_Files/compressed_text8_1MB.txt.gpz
+2024-09-10 14:57:38,911 - INFO - Padding amount: 442
+2024-09-10 14:57:38,912 - INFO - Getting Tokens...
+2024-09-10 14:57:38,912 - INFO - Processing batch 1 of 4
