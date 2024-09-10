@@ -1,6 +1,6 @@
 import torch
 import logging
-from transformers import AutoModelForCausalLM, AutoTokenizer, MixtralForCausalLM, BitsAndBytesConfig, GPT2LMHeadModel, GPT2Tokenizer, T5ForConditionalGeneration, T5Tokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer, MixtralForCausalLM, BitsAndBytesConfig, GPT2LMHeadModel, GPT2Tokenizer
 from transformers import BitsAndBytesConfig
 
 def get_model_and_tokenizer(model_name):
@@ -22,7 +22,8 @@ def get_model_and_tokenizer(model_name):
         tokenizer = AutoTokenizer.from_pretrained("mistralai/Mixtral-8x7B-v0.1")
     elif model_name == "gpt2":
         model = GPT2LMHeadModel.from_pretrained("gpt2",
-            quantization_config=bnb_config, 
+            # quantization_config=bnb_config,
+            # attn_implementation="flash_attention_2", 
             device_map="auto"
         )
         tokenizer = GPT2Tokenizer.from_pretrained("gpt2")
@@ -69,13 +70,13 @@ def get_model_and_tokenizer(model_name):
         )
         tokenizer = AutoTokenizer.from_pretrained("meta-llama/Meta-Llama-3.1-8B")
                     
-    elif model_name == "t5-small":
-        model = T5ForConditionalGeneration.from_pretrained("t5-small",
+    elif model_name == "Mistral_7B":
+        model = AutoModelForCausalLM.from_pretrained("mistralai/Mistral-7B-Instruct-v0.3",
             quantization_config=bnb_config, 
-            # attn_implementation="flash_attention_2", 
+            attn_implementation="flash_attention_2", 
             device_map="auto"
             )
-        tokenizer = T5Tokenizer.from_pretrained("t5-small")
+        tokenizer = AutoTokenizer.from_pretrained("mistralai/Mistral-7B-Instruct-v0.3")
         
         # Add more models as needed
         
