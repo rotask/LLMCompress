@@ -1,33 +1,12 @@
-2024-09-10 14:27:14,285 - INFO - Initialized LLMZip with model: gpt2 and compression method: Ranks
-2024-09-10 14:27:14,287 - INFO - Starting zipping process for file: Data/text8_1MB.txt
-2024-09-10 14:27:14,288 - INFO - Using device: NVIDIA GeForce RTX 3090
-2024-09-10 14:27:14,288 - INFO - Tokenizing text for language: text8_1MB using model: gpt2
-2024-09-10 14:27:14,288 - INFO - Creating new tokens and saving to file: Output_Files/Tokenstext8_1MBTextgpt2.txt
-2024-09-10 14:27:15,302 - INFO - Tokenization complete. Number of tokens: 203334, Characters per token: 5.16
-2024-09-10 14:27:15,302 - INFO - Padding tokens...
-2024-09-10 14:27:15,302 - INFO - Padding amount: 442
-2024-09-10 14:27:15,303 - INFO - Padding complete. Total tokens after padding: torch.Size([398, 512])
-2024-09-10 14:27:15,304 - INFO - Calculating ranks and probabilities...
-2024-09-10 14:27:15,305 - INFO - Processing batch 1 of 4
-2024-09-10 14:27:28,851 - INFO - Processing token 301 of 512 in batch 1
-2024-09-10 14:27:55,483 - INFO - Processing token 101 of 512 in batch 2
-2024-09-10 14:28:33,048 - INFO - Processing batch 3 of 4
-2024-09-10 14:29:00,278 - INFO - Processing token 401 of 512 in batch 3
-2024-09-10 14:29:15,480 - INFO - Processing token 201 of 512 in batch 4
-2024-09-10 14:29:18,960 - INFO - Ranks and probabilities calculation complete. Total ranks: 203776, Total probabilities: 203776
-2024-09-10 14:29:18,960 - INFO - Calculating entropy and redundancy...
-2024-09-10 14:29:18,963 - INFO - Entropy: 1.1935008764266968, Redundancy: 0.6058931223286509
-2024-09-10 14:29:19,743 - INFO - Compression complete! Saved file as Output_Files/compressed_text8_1MB.txt.gpz
-2024-09-10 14:29:19,743 - INFO - Zipping process for Data/text8_1MB.txt completed successfully in 2.09 minutes.
-2024-09-10 14:29:19,743 - INFO - Compression completed in 125.46 seconds
-2024-09-10 14:29:19,743 - INFO - Starting Unzipping process for file: Output_Files/compressed_text8_1MB.txt.gpz
-2024-09-10 14:29:19,746 - INFO - Padding amount: 442
-2024-09-10 14:29:19,747 - INFO - Getting Tokens...
-2024-09-10 14:29:19,747 - INFO - Processing batch 1 of 4
-2024-09-10 14:29:36,395 - INFO - Processing token 301 of 511 in batch 1
-2024-09-10 14:30:02,663 - INFO - Processing token 101 of 511 in batch 2
-2024-09-10 14:30:39,045 - INFO - Processing batch 3 of 4
-2024-09-10 14:31:06,199 - INFO - Processing token 401 of 511 in batch 3
-2024-09-10 14:31:21,404 - INFO - Processing token 201 of 511 in batch 4
-2024-09-10 14:31:26,552 - INFO - Decompression Completed in 2.11 minutes! Saved as Output_Files/decompressed_text8_1MB.txt
-2024-09-10 14:31:26,553 - INFO - Files MATCH - Zipping and Unzipping was done successfully!
+2024-09-10 14:55:34,781 - INFO - Initialized LLMZip with model: gpt2 and compression method: Ranks
+2024-09-10 14:55:34,783 - INFO - Starting zipping process for file: Data/text8_1MB.txt
+2024-09-10 14:55:34,783 - INFO - Using device: NVIDIA GeForce RTX 3090
+2024-09-10 14:55:34,784 - INFO - Tokenizing text for language: text8_1MB using model: gpt2
+2024-09-10 14:55:34,784 - INFO - Loading tokens from file: Output_Files/Tokenstext8_1MBTextgpt2.txt
+2024-09-10 14:55:34,815 - INFO - Tokenization complete. Number of tokens: 203334, Characters per token: 5.16
+2024-09-10 14:55:34,815 - INFO - Padding tokens...
+2024-09-10 14:55:34,815 - INFO - Padding amount: 442
+2024-09-10 14:55:34,815 - INFO - Padding complete. Total tokens after padding: torch.Size([398, 512])
+2024-09-10 14:55:34,816 - INFO - Calculating ranks and probabilities...
+2024-09-10 14:55:34,818 - INFO - Processing batch 1 of 4
+2024-09-10 14:55:48,445 - INFO - Processing token 301 of 512 in batch 1
