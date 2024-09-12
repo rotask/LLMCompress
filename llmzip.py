@@ -127,6 +127,7 @@ class LLMZip:
         logging.info(f"Summary length: {len(summary_tokens)}, Effective context size: {effective_context_size}")
 
         ranks = []
+        probs = []
         context = summary_tokens.clone()
 
         for i in tqdm(range(len(tokens)), desc="Processing tokens"):
@@ -139,11 +140,13 @@ class LLMZip:
             rank = (sorted_indices == tokens[i]).nonzero().item()
             
             ranks.append(rank)
+            probs.append(probabilities[tokens[i]].item())
             context = torch.cat([context, tokens[i].unsqueeze(0)])
             
             logging.debug(f"Token: {self.tokenizer.decode([tokens[i].item()])}, Rank: {rank}")
 
         ranks = torch.tensor(ranks, dtype=torch.int32)
+        probs = torch.tensor(probs)
 
         zipped_ranks = compress_ranks(ranks.cpu())
 
@@ -151,10 +154,25 @@ class LLMZip:
             file.write(zipped_ranks)
             logging.info(f"Compression complete! Saved file as {output_path}")
 
-        compression_ratio = os.path.getsize(output_path) * 8 / num_characters
+        compressed_size = os.path.getsize(output_path)
+        compression_ratio = compressed_size * 8 / num_characters
         time_taken = (time.time() - start_time) / 60
 
+        entropy, redundancy = self.calculate_entropy(num_characters, probs)
+
+        # Save results
+        language = os.path.splitext(os.path.basename(input_path))[0]
+        total_chars = num_characters
+        token_length = len(tokens)
+        char_token_ratio = num_characters / token_length
+
+        self.save_results(language, total_chars, token_length, char_token_ratio, entropy, 
+                        compression_ratio, redundancy, time_taken, gpu_name)
+
         logging.info(f"Zipping process for {input_path} completed successfully in {time_taken:.2f} minutes.")
+        logging.info(f"Compression ratio: {compression_ratio:.4f} bits per character")
+        logging.info(f"Entropy: {entropy:.4f}, Redundancy: {redundancy:.4f}")
+
         return compression_ratio
 
     def unzip(self, input_path, output_path, summary):

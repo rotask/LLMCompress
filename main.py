@@ -23,9 +23,9 @@ def parse_arguments():
                         help="Name of the model to use")
     parser.add_argument("--compression_method", choices=get_compression_methods(), default="Ranks",
                         help="Compression method to use")
-    parser.add_argument("--batch_size", type=int, default=128,
+    parser.add_argument("--batch_size", type=int, default=64,
                         help="Batch size for processing (default: 64)")
-    parser.add_argument("--context_size", type=int, default=128,
+    parser.add_argument("--context_size", type=int, default=512,
                         help="Context size for processing (default: 512)")
     parser.add_argument("--input_file", type=str, default="Data/text8_1MB.txt",
                         help="Path to the input file")
