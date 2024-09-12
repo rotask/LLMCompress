@@ -24,28 +24,24 @@ class LLMZip:
         # Log initialization
         logging.info(f"Initialized LLMZip with model: {self.model_name} and compression method: {self.compression_method}")
         
-    def tokenize(self, text, language):
-        
-        # Log tokenization process
-        logging.info(f"Tokenizing text for: {language} using model: {self.model_name} with context size: {Config.CONTEXT_SIZE}")
-        
-        tokens_path = os.path.join(Config.OUTPUT_DIR, f"Tokens{language}Text{self.model_name}.txt")
+    def tokenize(self, text, prefix):
+        tokens_path = os.path.join(Config.OUTPUT_DIR, f"Tokens_{prefix}_{self.model_name}.txt")
         
         if os.path.exists(tokens_path):
-            # If tokens file already exists, load tokens from file
             logging.info(f"Loading tokens from file: {tokens_path}")
             with open(tokens_path, 'r', encoding='utf-8') as file:
                 token_str = file.read().strip()
                 token_ids = list(map(int, token_str.split(',')))
                 tokens = torch.tensor(token_ids)
         else:
-            # If tokens file does not exist, create new tokens and save to file
             logging.info(f"Creating new tokens and saving to file: {tokens_path}")
-            tokens = self.tokenizer(text, return_tensors="pt")["input_ids"].squeeze()
+            tokens = self.tokenizer.encode(text, return_tensors="pt").squeeze()
             with open(tokens_path, 'w', encoding='utf-8') as file:
                 file.write(','.join(map(str, tokens.tolist())))
         
-        return tokens
+        logging.info(f"Number of tokens for {prefix}: {len(tokens)}")
+        return tokens.to(self.device)
+
     
     def pad(self, tokens, value):
         """
@@ -65,7 +61,8 @@ class LLMZip:
         if remainder > 0:
             pad_amount = Config.CONTEXT_SIZE - remainder
             logging.info(f"Padding amount: {pad_amount}")
-            padding = torch.tensor([value] * pad_amount)
+            # Create padding tensor on the same device as tokens
+            padding = torch.full((pad_amount,), value, dtype=tokens.dtype, device=tokens.device)
             tokens = torch.cat((tokens, padding))
         else:
             pad_amount = 0
@@ -73,28 +70,26 @@ class LLMZip:
         return tokens, pad_amount
     
     def forward(self, tokens, index, summary_tokens):
-        logging.info(f"Forward method called with tokens shape: {tokens.shape}, index: {index}, summary_tokens shape: {summary_tokens.shape}")
-        
         with torch.no_grad():
             batch_size = tokens.shape[0]
-            logging.info(f"Batch size: {batch_size}")
             
-            # Use summary as side information
-            context = torch.cat((summary_tokens.repeat(batch_size, 1), tokens[:, :index]), dim=1)
-            logging.info(f"Context shape after concatenation: {context.shape}")
+            # Ensure all tensors are on the same device
+            device = tokens.device
+            summary_tokens = summary_tokens.to(device)
+            
+            # Use summary as side information and include predicted tokens up to index
+            context = torch.cat((summary_tokens.unsqueeze(0).repeat(batch_size, 1), tokens[:, :index]), dim=1)
+            
+            # Check if context exceeds model's maximum input length
+            max_length = self.model.config.max_position_embeddings
+            if context.shape[1] > max_length:
+                context = context[:, -max_length:]  # Take the last max_length tokens
             
             inputs = {'input_ids': context}
-            logging.info(f"Model input shape: {inputs['input_ids'].shape}")
             
-            try:
-                output = self.model(**inputs)
-                logits = output.logits[:, -1, :]  # Only take the last token's logits
-                logging.info(f"Output logits shape: {logits.shape}")
-                return logits
-            except RuntimeError as e:
-                logging.error(f"RuntimeError in forward method: {str(e)}")
-                logging.error(f"Last successful shape - Context: {context.shape}, Inputs: {inputs['input_ids'].shape}")
-                raise
+            output = self.model(**inputs)
+            logits = output.logits[:, -1, :]  # Only take the last token's logits
+            return logits
     
     def calculate_entropy(self, no_characters, probs):
         entropy = (torch.sum(-1 * torch.log2(probs)).item()) / no_characters
@@ -115,84 +110,42 @@ class LLMZip:
             text = f.read()
 
         num_characters = len(text)
-        language = os.path.splitext(os.path.basename(input_path))[0]
+        logging.info(f"Original text length: {num_characters} characters")
 
-        tokens = self.tokenize(text, language)
-        summary_tokens = self.tokenizer(summary, return_tensors="pt")["input_ids"].to(self.device)
-        summary_length = summary_tokens.shape[1]
+        tokens = self.tokenize(text, "InputText")
+        summary_tokens = self.tokenizer(summary, return_tensors="pt")["input_ids"].squeeze(0)
+
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        tokens = tokens.to(device)
+        summary_tokens = summary_tokens.to(device)
 
         logging.info(f"Tokens shape: {tokens.shape}, Summary tokens shape: {summary_tokens.shape}")
 
-        num_tokens = len(tokens)
-        char_per_token = f"{num_characters / num_tokens:.2f}"
+        max_length = self.model.config.max_position_embeddings
+        effective_context_size = min(Config.CONTEXT_SIZE, max_length - len(summary_tokens))
+        
+        logging.info(f"Summary length: {len(summary_tokens)}, Effective context size: {effective_context_size}")
 
-        logging.info(f"Tokenization complete. Number of tokens: {num_tokens}, Characters per token: {char_per_token}")
+        ranks = []
+        context = summary_tokens.clone()
 
-        tokens, pad_amount = self.pad(tokens, self.tokenizer.eos_token_id)
-        tokens = tokens.reshape(-1, Config.CONTEXT_SIZE)
-        tokens = tokens.to(self.device)
+        for i in tqdm(range(len(tokens)), desc="Processing tokens"):
+            if len(context) >= max_length:
+                context = torch.cat([summary_tokens, context[-(max_length-len(summary_tokens)):]])
 
-        logging.info(f"Tokens shape after padding and reshaping: {tokens.shape}")
+            logits = self.model(input_ids=context.unsqueeze(0)).logits[0, -1]
+            probabilities = F.softmax(logits, dim=-1)
+            sorted_indices = torch.argsort(logits, descending=True)
+            rank = (sorted_indices == tokens[i]).nonzero().item()
+            
+            ranks.append(rank)
+            context = torch.cat([context, tokens[i].unsqueeze(0)])
+            
+            logging.debug(f"Token: {self.tokenizer.decode([tokens[i].item()])}, Rank: {rank}")
 
-        ranks = torch.zeros((tokens.shape[0], Config.CONTEXT_SIZE), dtype=torch.int32)
-        probs = torch.zeros((tokens.shape[0], Config.CONTEXT_SIZE))
+        ranks = torch.tensor(ranks, dtype=torch.int32)
 
-        logging.info(f"Ranks shape: {ranks.shape}, Probs shape: {probs.shape}")
-
-        batches = tokens.shape[0] // Config.BATCH_SIZE
-        if tokens.shape[0] % Config.BATCH_SIZE != 0:
-            batches += 1
-
-        logging.info(f"Total batches: {batches}")
-
-        tqdm_callback = TqdmToLogger(logging.getLogger(), level=logging.INFO)
-        for i in tqdm(range(batches), desc="Processing batches", unit="batch", leave=True, file=sys.stdout, dynamic_ncols=True):
-            batch = tokens[i*Config.BATCH_SIZE:(i+1)*Config.BATCH_SIZE]
-            logging.info(f"Batch {i+1} shape: {batch.shape}")
-
-            curr_ranks = torch.zeros((batch.shape[0], Config.CONTEXT_SIZE), dtype=torch.int32)
-            curr_probs = torch.zeros((batch.shape[0], Config.CONTEXT_SIZE))
-
-            for j in tqdm(range(Config.CONTEXT_SIZE), desc="Processing tokens", unit="token", leave=False, file=sys.stdout, dynamic_ncols=True):
-                if j % 100 == 0:
-                    tqdm_callback(f"Processing token {j+1} of {Config.CONTEXT_SIZE} in batch {i+1}")
-
-                try:
-                    logits = self.forward(batch, j, summary_tokens)
-                    logging.info(f"Logits shape: {logits.shape}")
-
-                    logits, sorted_tokens = torch.sort(logits, descending=True)
-                    probabilities = F.softmax(logits, dim=-1)
-
-                    next_tokens = batch[:, j]
-                    next_tokens_expanded = next_tokens.view(-1, 1).expand_as(sorted_tokens)
-                    rank_indices = (sorted_tokens == next_tokens_expanded).nonzero(as_tuple=True)[1]
-                    curr_ranks[:, j] = rank_indices
-                    curr_probs[:, j] = probabilities.gather(1, rank_indices.view(-1, 1)).squeeze()
-                except Exception as e:
-                    logging.error(f"Error processing token {j} in batch {i}: {str(e)}")
-                    logging.error(f"Current shapes - Batch: {batch.shape}, Summary tokens: {summary_tokens.shape}")
-                    raise
-
-            ranks[i*Config.BATCH_SIZE:(i+1)*Config.BATCH_SIZE] = curr_ranks
-            probs[i*Config.BATCH_SIZE:(i+1)*Config.BATCH_SIZE] = curr_probs
-
-        # Remove padding
-        if pad_amount > 0:
-            logging.info(f"Removing {pad_amount} padding tokens")
-            ranks = ranks[:, :-pad_amount]
-            probs = probs[:, :-pad_amount]
-
-        logging.info(f"Final ranks shape: {ranks.shape}, Final probs shape: {probs.shape}")
-
-        ranks = ranks.flatten().int()
-        probs = probs.flatten()
-        probs = torch.where(probs == 0, probs + 0.001, probs)
-
-        entropy, redundancy = self.calculate_entropy(num_characters, probs)
-        logging.info(f"Entropy: {entropy}, Redundancy: {redundancy}")
-
-        zipped_ranks = compress_ranks(ranks)
+        zipped_ranks = compress_ranks(ranks.cpu())
 
         with open(output_path, "wb") as file:
             file.write(zipped_ranks)
@@ -201,8 +154,8 @@ class LLMZip:
         compression_ratio = os.path.getsize(output_path) * 8 / num_characters
         time_taken = (time.time() - start_time) / 60
 
-        self.save_results(language, num_characters, num_tokens, char_per_token, entropy, compression_ratio, redundancy, time_taken, gpu_name)
         logging.info(f"Zipping process for {input_path} completed successfully in {time_taken:.2f} minutes.")
+        return compression_ratio
 
     def unzip(self, input_path, output_path, summary):
         logging.info(f"Starting Unzipping process for file: {input_path}")
@@ -215,65 +168,47 @@ class LLMZip:
         ranks = decompress_ranks(zipped_ranks)
         logging.info(f"Decompressed ranks shape: {ranks.shape}")
 
-        summary_tokens = self.tokenizer(summary, return_tensors="pt")["input_ids"].to(self.device)
+        summary_tokens = self.tokenizer(summary, return_tensors="pt")["input_ids"].squeeze(0)
         logging.info(f"Summary tokens shape: {summary_tokens.shape}")
 
+        device = next(self.model.parameters()).device
+        summary_tokens = summary_tokens.to(device)
+        ranks = ranks.to(device)
+
+        max_length = self.model.config.max_position_embeddings
+        effective_context_size = min(Config.CONTEXT_SIZE, max_length - len(summary_tokens))
+
+        decoded_tokens = []
+        context = summary_tokens.clone()
+
         with torch.no_grad():
-            ranks, pad_amount = self.pad(ranks, -999)
-            logging.info(f"Padding amount: {pad_amount}")
-            ranks = ranks.reshape(-1, Config.CONTEXT_SIZE)
-            logging.info(f"Reshaped ranks shape: {ranks.shape}")
+            for i in tqdm(range(len(ranks)), desc="Processing ranks"):
+                if len(context) >= max_length:
+                    context = torch.cat([summary_tokens, context[-(max_length-len(summary_tokens)):]])
 
-            fill_token_id = self.tokenizer.pad_token_id if self.tokenizer.pad_token_id is not None else self.tokenizer.eos_token_id
-            tokens = torch.full((ranks.shape[0], Config.CONTEXT_SIZE + 1), fill_token_id, dtype=torch.long).to(self.device)
-            tokens[:, 0] = self.tokenizer.bos_token_id if self.tokenizer.bos_token_id is not None else self.tokenizer.eos_token_id
-            logging.info(f"Initial tokens shape: {tokens.shape}")
+                logits = self.model(input_ids=context.unsqueeze(0)).logits[0, -1]
+                sorted_indices = torch.argsort(logits, descending=True)
+                decoded_token = sorted_indices[ranks[i]].item()
+                
+                decoded_tokens.append(decoded_token)
+                context = torch.cat([context, torch.tensor([decoded_token], device=device)])
+                
+                logging.debug(f"Rank: {ranks[i].item()}, Decoded token: {self.tokenizer.decode([decoded_token])}")
 
-            batches = ranks.shape[0] // Config.BATCH_SIZE
-            if ranks.shape[0] % Config.BATCH_SIZE != 0:
-                batches += 1
-            logging.info(f"Total batches: {batches}")
+        logging.info("Token reconstruction completed. Decoding text...")
+        text = self.tokenizer.decode(decoded_tokens, skip_special_tokens=True, clean_up_tokenization_spaces=False)
+        logging.info(f"Decoded text length: {len(text)}")
 
-            logging.info("Starting token reconstruction...")
-            for i in tqdm(range(batches), desc="Processing batches", unit="batch"):
-                curr_ranks = ranks[i*Config.BATCH_SIZE:(i + 1)*Config.BATCH_SIZE]
-                batch = tokens[i*Config.BATCH_SIZE:(i + 1)*Config.BATCH_SIZE]
-                logging.info(f"Processing batch {i+1}/{batches}, shape: {batch.shape}")
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(text)
 
-                for j in tqdm(range(Config.CONTEXT_SIZE), desc="Processing tokens", unit="token", leave=False):
-                    context = torch.cat((summary_tokens.repeat(batch.shape[0], 1), batch[:, :j+1]), dim=1)
-                    logits = self.model(input_ids=context).logits[:, -1, :]
-                    
-                    k = curr_ranks[:, j].max().item() + 1
-                    _, top_tokens = torch.topk(logits, k, dim=-1)
-                    
-                    indices = curr_ranks[:, j].clone()
-                    mask = indices == -999
-                    valid_indices = torch.where(mask, torch.tensor(0, device=indices.device), indices)
-                    decoded_tokens = top_tokens[torch.arange(indices.shape[0]), valid_indices]
-                    decoded_tokens[mask] = fill_token_id
-                    batch[:, j + 1] = decoded_tokens
+        time_taken = (time.time() - start_time) / 60
+        logging.info(f"Decompression Completed in {time_taken:.2f} minutes! Saved as {output_path}")
 
-                tokens[i*Config.BATCH_SIZE:(i + 1)*Config.BATCH_SIZE] = batch
-
-            logging.info("Token reconstruction completed. Decoding text...")
-            tokens = tokens.view(-1)
-            tokens = tokens[tokens != fill_token_id]
-            logging.info(f"Final tokens shape after removing padding: {tokens.shape}")
-            
-            text = self.tokenizer.decode(tokens, skip_special_tokens=True, clean_up_tokenization_spaces=False)
-            logging.info(f"Decoded text length: {len(text)}")
-
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write(text)
-
-            time_taken = (time.time() - start_time) / 60
-            logging.info(f"Decompression Completed in {time_taken:.2f} minutes! Saved as {output_path}")
-
-            # Log a sample of the decompressed text
-            sample_length = min(1000, len(text))
-            logging.info(f"Sample of decompressed text (first {sample_length} characters):")
-            logging.info(text[:sample_length])
+        # Log a sample of the decompressed text
+        sample_length = min(1000, len(text))
+        logging.info(f"Sample of decompressed text (first {sample_length} characters):")
+        logging.info(text[:sample_length])
                 
     def check(self, original_text, unzipped_text):
         try:
