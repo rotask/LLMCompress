@@ -64,6 +64,24 @@ A more ambitious **Enhanced Contextual Compression** scheme that prepends per-wi
 
 ---
 
+## Reproducibility note
+
+All non-GPT-2 results in the table above were obtained with **4-bit NF4 quantization** (bitsandbytes, `bnb_4bit_compute_dtype=bfloat16`, double-quant on) on **2× NVIDIA RTX 3090 (24 GB each)** with Flash-Attention 2 where supported. GPT-2 was run unquantized at full precision.
+
+Quantization was a hard requirement to fit Yi-34B and Mixtral-8x7B in 48 GB VRAM at context size 1024. Reported entropies and compression ratios are therefore quantized-model performance. Full-precision results would likely be marginally better but were not measured. See thesis §3.2 for the experimental setup and §6.1 for hardware/environment details.
+
+---
+
+## Known issues (post-thesis review)
+
+A code review after submission identified the following issues in the codebase. They do not affect the canonical Ranks-method results reported above (text8 / BookCorpus, all 8 models, all context sizes), which were validated by the round-trip equality check in `LLMCompress.check`. They are flagged here for transparency and for anyone reusing the code.
+
+- **Arithmetic-Coding path (`Arithmetic_Coder.py`)**: (1) the character-count metric uses `len(tokenizer.batch_decode(...))` which returns the list length, not the character count — so AC entropy/ratio metrics, where reported, are inconsistent with the Ranks-method definitions; (2) the encoder loop does not reuse `past_key_values`, making AC O(N²) in compute; (3) the compressed `.bin` file does not embed the original token count, so it is not self-contained for decompression. The Ranks method (canonical for this thesis) does not share these issues.
+- **Zero-probability epsilon (`llmcompress.py`)**: tokens with `prob == 0` (rare, but possible at the quantization tail) are silently shifted to `0.001`. This affects the `entropy` metric only when triggered; the rank stream and the round-trip-verified compression ratio are unaffected.
+- **`zlib_compress.py` round-trip check** uses `data.startswith(decompressed[:200])` — a prefix-only sanity check, not a true equality assertion. The Zlib baseline numbers in the thesis come from `os.path.getsize` of the compressed file, which is independent of this check.
+
+---
+
 ## Method — rank-based encoding with Zlib
 
 For each token position, the LLM produces a probability distribution over the vocabulary. The token actually present in the source text is converted to its **rank** under that distribution (rank 0 = most likely, rank 1 = second-most likely, …). The sequence of ranks is then encoded with Zlib (DEFLATE).
