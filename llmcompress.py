@@ -137,7 +137,7 @@ class LLMCompress:
         logging.info(f"Using device: {gpu_name}")
                     
         if self.compression_method == "AC":
-            AC_compress_file(self.model, self.model_name, self.tokenizer, input_path, output_path, 500)
+            AC_compress_file(self.model, self.model_name, self.tokenizer, input_path, output_path)
         elif self.compression_method == "Ranks":
             # Ranks compression method
             with open(input_path, encoding="utf-8") as f:
@@ -203,7 +203,19 @@ class LLMCompress:
             # Flatten and process ranks and probabilities
             ranks = ranks.flatten().int()
             probs = probs.flatten()
-            probs = torch.where(probs == 0, probs + 0.001, probs)
+            # Guard log2(0) when computing the entropy metric. Softmax can underflow
+            # to exactly 0 for very-low-probability tokens (most likely with 4-bit
+            # quantization). Clamping to a small epsilon keeps the entropy finite.
+            # Note: this only affects the reported entropy metric — the rank stream
+            # (the actual compressed bytes) is unaffected.
+            n_zero_probs = (probs == 0).sum().item()
+            if n_zero_probs > 0:
+                logging.warning(
+                    f"{n_zero_probs} of {len(probs)} positions had model probability 0 "
+                    f"(likely softmax underflow on quantization tail). Clamping to 1e-12 "
+                    f"for entropy calc; this affects the reported entropy metric only."
+                )
+            probs = probs.clamp(min=1e-12)
             logging.info(f"Ranks and probabilities calculation complete. Total ranks: {len(ranks)}, Total probabilities: {len(probs)}")
             
             # Remove padding if necessary
@@ -249,7 +261,7 @@ class LLMCompress:
         logging.info(f"Starting decompression process for file: {input_path}")
         
         if self.compression_method == "AC":
-            AC_decompress_file(self.model, self.tokenizer, input_path, output_path, 500)
+            AC_decompress_file(self.model, self.tokenizer, input_path, output_path)
         elif self.compression_method == "Ranks":
             # Ranks decompression method
             with open(input_path, "rb") as file:
