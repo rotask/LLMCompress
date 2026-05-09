@@ -217,7 +217,7 @@ class LLMCompress:
 
             # Save probabilities
             probs_filename = f"Probabilities{self.model_name}{language}.txt"
-            probs_path = os.path.join("Output_Files", probs_filename)
+            probs_path = os.path.join(Config.OUTPUT_DIR, probs_filename)
             with open(probs_path, 'w', encoding='utf-8') as file:
                 file.write(','.join(map(str, probs.tolist())))
             

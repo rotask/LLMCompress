@@ -81,8 +81,10 @@ def main():
         # Test for decompression and verify
         decompressed_message = decompress_and_verify()
 
-        # Verify the decompressed message with the original data
-        if data.startswith(decompressed_message[:200]):  # Check first 200 characters to ensure match
+        # Verify the decompressed message with the original data.
+        # A lossless compressor must produce a byte-exact roundtrip, so this
+        # must be a full equality check, not a prefix check.
+        if data == decompressed_message:
             print("Decompression successful and data verified!")
         else:
             print("Warning: Decompressed data does not match the original data.")
